@@ -5,35 +5,55 @@ decrypt, transfer and verify a symmetiric key, and communicte with tis
 symmetric key to encode and decode communication data.
 
 ## Dependents
+* asyncio
+* cryptography
+* uvloop
 
 
 ## TCP API
-class P2pscTcpClient:
-	def __init__(self, server, port, mypid, 
-							myprivate_key, server_public_key):
-		pass
-
-	def send_bytes(self, data):
-		pass
-
-	def recv_bytes(self, size=4096):
-		pass
-
-	def close()
-		pass
-
-class P2pscTcpServer:
+```
+class TcpP2psc:
 	def __init__(self, localhost, port, mypid, 
-							myprivate_key, get_peer_pubkey):
+							myprivate_key, find_peer_info):
 		pass
 
-	def on_recv_bytes(self, pid, data)
+	def connect_peer(self, pid):
+		pass
+
+	def sendto_peer(self, pid, data)
+		pass
+
+	def run(self):
+		pass
+
+	def close_peer(self):
+		pass
+
+	def on_recvfrom_peer(self, pid, data)
 		"""
 		it need to return a bytes will be send back to client
 		"""
+		pass
 
-	def close()
+	def on_ready(self):
+		"""
+		when the server ready
+		"""
+		pass
 
-
+```
 ## Usage
+class MyTcpP2psc(TcpP2psc):
+	def on_recvfrom_peer(self, pid, data):
+		...
+
+	def on_ready(self):
+		...
+
+def find_peer_info(pid):
+	...
+
+p2psc = MyTcpP2psc(localhsot, 30000, 'test_server', 'my.pem', find_pper_info)
+p2psc.run()
+
 
