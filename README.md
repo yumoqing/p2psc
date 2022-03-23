@@ -1,8 +1,7 @@
 # p2psc
-p2psc means peer to peer security communication for tcp and udp protocol. 
-it use both one's private key and both sides's public key to encrypt, 
-decrypt, transfer and verify a symmetiric key, and communicte with tis 
-symmetric key to encode and decode communication data.
+p2psc use RSA's encrypt/decrypt and sign/verify to make a safe hand shake
+and use rc4 with a secret book switched in hand shake phase to 
+encrypt/decrype data to deliver between the peer to peer hand shaked
 
 ## Dependents
 * asyncio
@@ -12,9 +11,13 @@ symmetric key to encode and decode communication data.
 
 ## Principle
 
-We use RSA's encrypt/decrypt and sign/verify to make a safe hand shake
-and use rc4 with a secret book switched in hand shake phase to 
-encrypt/decrype data to deliver between the peer to peer hand shaked
+* hand shake phase:
+client use server's pubkey to encrypt client's peer_id and a secret book generated randomly, then use client's private key to sign. finally pack it as a hand shake request data, send to the server
+when server received hand shake data, unpack the data to crypt data and a sign data, use server's private key to decrypt the crypt data, then unpack it to client's peer_id, and secret book, using the client peer_id find clien's public key, then use client public key to verify the sign.
+if everything is OK, then generates a sessionid and encrypt it with client's public key, sign the crypt data with self private key, finally pack and send it bak to client
+hand shake finish
+* normal data communication
+use secret book and current timestamp to generate a rc4 key, and encrypt/decrypt the data communicates between the two peers hand shaked.
 
 ## TCP API
 
@@ -30,7 +33,7 @@ UdpP2p is a udp protocol for p2p
 ## Usage
 
 ### TCP 
-server side
+server.py under test folder
 ```
 import os, sys
 import asyncio
@@ -52,7 +55,7 @@ loop.run_until_complete( \
     loop.run_forever()
 ```
 
-client side
+client.py under test folder
 ```
 import os, sys
 import asyncio
