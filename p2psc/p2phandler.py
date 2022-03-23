@@ -2,6 +2,7 @@
 import os
 import time
 import codecs
+import functools
 import requests
 from appPublic.jsonConfig import getConfig
 from appPublic.rsa import RSA
@@ -10,8 +11,9 @@ import random
 import socket
 P2PSC_CENTER_PID = 'p2psc_center'
 from .p2p import TcpP2P
+import concurrent.futures
 
-class P2pHandler(object):
+class P2PHandler(object):
 	def __init__(self, loop=None):
 		if loop is None:
 			loop = asyncio.get_event_loop()
@@ -21,8 +23,28 @@ class P2pHandler(object):
 		config = getConfig()
 		self._load_my_info()
 		self._load_secret_original()
+		self.conns = {}
+		self.excutor = concurrent.futures.ThreadPoolExecutor(
+			max_workers=300
+		)
 		if config.known_peers_file:
 			self._load_peers_info_from_file(config.known_peers_file)
+
+	def set_peer_conn(self, peer_id, protocol):
+		self.conns[peer_id] = protocol
+
+	def get_peer_conn(self, peer_id):
+		return self.conns.get(peer_id)
+
+	def bridge(self, peer1_id, peer2_id):
+		p1 = self.get_peer_conn(peer1_id)
+		p2 = self.get_peer_conn(peer2_id)
+		def data_received1(data):
+			p2.transport.write(data)
+		def data_received2(data):
+			p1.transport.write(data)
+		p1.data_received = data_received1
+		p2.data_received = data_received2
 
 	def _load_secret_original(self):
 		config = getConfig()
@@ -93,14 +115,12 @@ class P2pHandler(object):
 			
 
 	def get_myaddress(self):
-		print(self.config['host'])
 		host = socket.gethostbyname(self.config['host'])
 		port = self.config['port']
 		return host, port
 
 	def get_peer_address(self, pid):
 		p = self.get_peer_info(pid)
-		print('peer info=', pid, p)
 		if p is None:
 			return None, None
 		h = socket.gethostbyname(p['host'])
@@ -165,21 +185,27 @@ class P2pHandler(object):
 		return None
 
 	def create_protocol(self, ProtocolClass, peer_id=None):
-		return ProtocolClass(self, self.peer_id, peer_id=peer_id)
+		return ProtocolClass(self, self.get_myid(), peer_id=peer_id)
 
+	
 	async def connect_peer(self, peer_id, ProtocolClass=TcpP2P):
-		f = functools.partial(self.create_protocol, peer_id)
+		f = functools.partial(self.create_protocol, ProtocolClass, peer_id)
 		pinfo = self.get_peer_info(peer_id)
 		h = socket.gethostbyname(pinfo['host'])
 		p = pinfo['port']
 		client = await self.loop.create_connection(f, h, p)
 
-	def run_as_server(self, ProtocolClass=TcpP2P):
+	async def run_as_server(self, ProtocolClass=TcpP2P):
+		f = functools.partial(self.create_protocol, ProtocolClass)
 		h,p = self.get_myaddress()
-		coro = self.loop.create_server(self.create_prototocol, h, p)
-		self.server = await self.loop.run_until_complete(coro)
-		try:
-			self.loop.run_forever()
-		except KeyboardInterrupt:
-			self.server.close()
-			self.loop.stop()
+		self.server = await self.loop.create_server(f, 
+									h, p)
+
+	def create_secret_book(self):
+		alpha=' qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890!@#$%^&*(),./<>?'
+		la = len(alpha)
+		x = ""
+		for i in range(113):
+			j = int(random.random() * la)
+			x = f'{x}{alpha[j]}'
+		return x.encode('utf-8')

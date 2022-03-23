@@ -8,52 +8,80 @@ symmetric key to encode and decode communication data.
 * asyncio
 * cryptography
 * uvloop
+* appPublic
 
+## Principle
+
+We use RSA's encrypt/decrypt and sign/verify to make a safe hand shake
+and use rc4 with a secret book switched in hand shake phase to 
+encrypt/decrype data to deliver between the peer to peer hand shaked
 
 ## TCP API
-```
-class TcpP2psc:
-	def __init__(self, localhost, port, mypid, 
-							myprivate_key, find_peer_info):
-		pass
 
-	def connect_peer(self, pid):
-		pass
+### class P2PHandler
 
-	def sendto_peer(self, pid, data)
-		pass
+P2pHandler mantain self rsa key and peer's public key, and do the encrypt/decrypt work
 
-	def run(self):
-		pass
+### class TcpP2P
+TcpP2P is a udp protocol for p2p
+### class UdpP2P
+UdpP2p is a udp protocol for p2p
 
-	def close_peer(self):
-		pass
-
-	def on_recvfrom_peer(self, pid, data)
-		"""
-		it need to return a bytes will be send back to client
-		"""
-		pass
-
-	def on_ready(self):
-		"""
-		when the server ready
-		"""
-		pass
-
-```
 ## Usage
-class MyTcpP2psc(TcpP2psc):
-	def on_recvfrom_peer(self, pid, data):
-		...
 
-	def on_ready(self):
-		...
+### TCP 
+server side
+```
+import os, sys
+import asyncio
+from p2psc.p2phandler import P2PHandler
+from p2psc.p2p import TcpP2P
+from appPublic.jsonConfig import getConfig
 
-def find_peer_info(pid):
-	...
+class Server(TcpP2P):
+    def on_recv(self, data):
+        self.send(b'recv:' + data)
 
-p2psc = MyTcpP2psc(localhsot, 30000, 'test_server', 'my.pem', find_pper_info)
-p2psc.run()
+if __name__ == '__main__':
+    pwd = os.getcwd()
+    config = getConfig(pwd)
+    loop = asyncio.get_event_loop()
+    p2p = P2PHandler(loop=loop)
+loop.run_until_complete( \
+	p2p.run_as_server(ProtocolClass=Server))
+    loop.run_forever()
+```
+
+client side
+```
+import os, sys
+import asyncio
+from p2psc.p2p import TcpP2P
+from p2psc.p2phandler import P2PHandler
+from appPublic.jsonConfig import getConfig
+
+class Client(TcpP2P):
+    def on_handshaked(self):
+        self.send(b'this is a test text')
+
+    def on_recv(self, data):
+        d = data.decode('utf-8')
+        print('data receive=', d)
+        self.transport.close()
+        loop = asyncio.get_running_loop()
+        loop.stop()
+
+if __name__ == '__main__':
+    pwd = os.getcwd()
+    config = getConfig(pwd)
+    if len(sys.argv) < 2:
+        print('Usage:\n%s peerid', sys.argv[1])
+        sys.exit(1)
+
+    loop = asyncio.get_event_loop()
+    p2p = P2PHandler(loop=loop)
+    c = loop.run_until_complete( p2p.connect_peer(sys.argv[1], ProtocolClass=Client))
+    loop.run_forever()
+```
 
 
