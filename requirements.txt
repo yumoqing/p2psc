@@ -1,4 +1,4 @@
 asyncio
 cryptography
-appPublic
+appPublic>=5.1.4
 uvloop
