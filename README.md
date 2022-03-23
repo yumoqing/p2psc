@@ -83,5 +83,71 @@ if __name__ == '__main__':
     c = loop.run_until_complete( p2p.connect_peer(sys.argv[1], ProtocolClass=Client))
     loop.run_forever()
 ```
+## Peer's configure file
+P2psc need a conf/config.json file in somewhere to stores the p2p configure information.
+it contains:
+```
+{
+	"my_prikey_file":   "$[workdir]$/data/private_key.pem",
+	"xconfig":          "$[workdir]$/data/config.json",
+	"known_peers_file": "$[workdir]$/data/peers.json",
+	"peer_pubkey_path": "$[workdir]$/data/pubkeys",
+	"find_peer_info_url":"http://192.168.1.8:9999/api/get_peer_info.dspy"
+}
+```
+In configure file, there are three variable can use, it meens:
+* workdir
+	current work folder where the programs run 
+* ProgramPath
+	the program folder
+* home
+	user home
 
+### my_prikey_file
+Self peer's private key file, in pem format, support to set access key
 
+### xconfig
+self peer node's configure information
+```
+{
+	"peer_id":"test1.com",
+	"host":"127.0.0.1",
+	"port":10098
+}
+```
+### known_peers_file
+stores all known peer information
+```
+{
+	"test2.com":{
+		"peer_id":"test2.com",
+		"host":"localhost",
+		"port":10099
+	}
+}
+```
+
+### find_peer_info_url
+A website store peer's public key and connect host and  port information
+
+### peer_pubkey_path
+The folder stores peer's public key, need write privilege
+```
+-rw-r--r--  1 ymq  staff  451 Mar 16 11:31 test2.com.pubkey.pem
+```
+### 
+## Test
+test source code in test folder, there are client.py and server.py in test folder
+### start server
+```
+cd test1
+python ../test/server.py
+```
+
+### start client
+```
+cd test2
+python ../test/client.py test1.com
+```
+the result
+```
