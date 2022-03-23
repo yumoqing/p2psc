@@ -6,7 +6,7 @@ encrypt/decrype data to deliver between the peer to peer hand shaked
 ## Dependents
 * asyncio
 * cryptography
-* uvloop
+* uvloop(optionally)
 * appPublic
 
 ## Principle
