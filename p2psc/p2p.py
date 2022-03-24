@@ -6,8 +6,11 @@ and using the symmetric crypt key to encode and decode the data.
 import asyncio
 import time
 import struct
+from appPublic.app_logger import create_logger
 from appPublic.uniqueID import getID
 from appPublic.rc4 import KeyChain
+from appPublic.app_logger import AppLogger
+from .crc import gen_crc, check_crc
 
 HANDSHAKE_REQ=b'\x01'
 HANDSHAKE_RESP=b'\x02'
@@ -17,6 +20,9 @@ BRIDGE_TO_RESP=b'\x04'
 BRIDGE_FOR_REQ=b'\x05'
 BRIDGE_FOR_RESP=b'\x06'
 
+class CRCError(Exception):
+	pass
+
 class ChannelNotReady(Exception):
 	pass
 class InvalidDataType(Exception):
@@ -24,8 +30,9 @@ class InvalidDataType(Exception):
 class SignCheckError(Exception):
 	pass
 
-class P2P(object):
+class P2P(AppLogger):
 	def __init__(self, handler, myid, peer_id=None):
+		AppLogger.__init__(self)
 		self.is_server = True if peer_id is None else False
 		self.handler = handler
 		self.status = 'init'
@@ -79,13 +86,13 @@ class P2P(object):
 		fmt1 = '%ds%ds' % (len(crypt), len(sign))
 		send_buffer = HANDSHAKE_REQ + fmt1.encode('utf-8') + \
 						b'||' + struct.pack(fmt1, crypt, sign)
-		return sned_buffer
+		return send_buffer
 
 	def hand_shake(self, peer_id=None):
 		if peer_id is None:
 			peer_id = self.peer_id
-		send_buffer = self.pack_hand_shake(self, peer_id)
-		self.transport.write(send_buffer)
+		send_buffer = self.pack_hand_shake(peer_id)
+		self.transport_write(send_buffer)
 
 	def unpack_hand_shake_data(self, data):
 		fmt, d = data.split(b'||', 1)
@@ -113,7 +120,7 @@ class P2P(object):
 		fmt = '!%ds%ds' % (len(crypt), len(sign))
 		stru = struct.pack(fmt, crypt, sign)
 		send_buffer = HANDSHAKE_RESP + fmt.encode('utf-8') + b'||' + stru
-		self.transport.write(send_buffer)
+		self.transport_write(send_buffer)
 		self.status = 'normal'
 	
 	def unpack_hand_shake_response_data(self, data):
@@ -131,16 +138,30 @@ class P2P(object):
 		self.status = 'normal'
 		self.on_handshaked()
 
-	def send(self, data):
+	def symmetric_encrypt_data(self, data):
 		if self.status != 'normal':
 			print('self.status=', self.status)
 			raise ChannelNotReady()
 		crypt = self.keychain.encode_bytes(data)
-		self.transport.write(NORMAL_DATA + self.session_id + crypt)
+		return crypt
 
+	def send(self, data):
+		crc = gen_crc(data)
+		bdata = crc+data
+		crypt = self.symmetric_encrypt_data(bdata)
+		self.transport_write(NORMAL_DATA + self.session_id + crypt)
+
+	def transport_write(self, data):
+		self.transport.write(data)
+		
 	def accept_normal_data(self, data):
 		bdata = self.keychain.decode_bytes(data)
-		return self.on_recv(bdata)
+		crc = bdata[:1]
+		_bdata = bdata[1:]
+		if check_crc(_bdata, crc):
+			return self.on_recv(_bdata)
+		else:
+			raise CRCError
 
 	def data_handler(self, data):
 		if data[0:1] == HANDSHAKE_REQ:
@@ -190,3 +211,4 @@ class TcpP2P(asyncio.Protocol, P2P):
 
 	def data_received(self, data):
 		return self.data_handler(data)
+

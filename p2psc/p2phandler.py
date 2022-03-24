@@ -11,6 +11,7 @@ import random
 import socket
 P2PSC_CENTER_PID = 'p2psc_center'
 from .p2p import TcpP2P
+from .udp_p2p import UdpP2P
 import concurrent.futures
 
 class P2PHandler(object):
@@ -24,7 +25,7 @@ class P2PHandler(object):
 		self._load_my_info()
 		self._load_secret_original()
 		self.conns = {}
-		self.excutor = concurrent.futures.ThreadPoolExecutor(
+		self.executor = concurrent.futures.ThreadPoolExecutor(
 			max_workers=300
 		)
 		if config.known_peers_file:
@@ -194,6 +195,16 @@ class P2PHandler(object):
 		h = socket.gethostbyname(pinfo['host'])
 		p = pinfo['port']
 		client = await self.loop.create_connection(f, h, p)
+		return client
+
+	async def connect_udp_peer(self, peer_id, ProtocolClass=UdpP2P):
+		f = functools.partial(self.create_protocol, ProtocolClass, peer_id)
+		pinfo = self.get_peer_info(peer_id)
+		h = socket.gethostbyname(pinfo['host'])
+		p = pinfo['port']
+		client = await self.loop.create_datagram_endpoint(f, 
+									remote_addr=(h, p))
+		return client
 
 	async def run_as_server(self, ProtocolClass=TcpP2P):
 		f = functools.partial(self.create_protocol, ProtocolClass)
@@ -201,6 +212,12 @@ class P2PHandler(object):
 		self.server = await self.loop.create_server(f, 
 									h, p)
 
+	async def run_as_udp_server(self, ProtocolClass=UdpP2P):
+		f = functools.partial(self.create_protocol, ProtocolClass)
+		h,p = self.get_myaddress()
+		self.server = await self.loop.create_datagram_endpoint(f, 
+							local_addr=(h,p))
+		
 	def create_secret_book(self):
 		alpha=' qwertyuiopasdfghjklzxcvbnmQWERTYUIOPASDFGHJKLZXCVBNM1234567890!@#$%^&*(),./<>?'
 		la = len(alpha)
