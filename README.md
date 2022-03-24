@@ -86,6 +86,69 @@ if __name__ == '__main__':
     c = loop.run_until_complete( p2p.connect_peer(sys.argv[1], ProtocolClass=Client))
     loop.run_forever()
 ```
+### Udp
+
+userver.py
+```
+import os, sys
+import asyncio
+from p2psc.p2phandler import P2PHandler
+from p2psc.udp_p2p import UdpP2P
+from appPublic.jsonConfig import getConfig
+from appPublic.app_logger import create_logger
+
+class Server(UdpP2P):
+	def on_recv(self, data, addr):
+		self.debug('data=%s, addr=%s', data, addr)
+		self.send(b'recv:' + data, addr)
+
+if __name__ == '__main__':
+	pwd = os.getcwd()
+	config = getConfig(pwd)
+	logger = create_logger('userver', levelname='debug')
+	loop = asyncio.get_event_loop()
+	p2p = P2PHandler(loop=loop)
+	loop.run_until_complete(p2p.run_as_udp_server(ProtocolClass=Server))
+	loop.run_forever()
+```
+uclient.py
+```
+import os, sys
+import asyncio
+from p2psc.udp_p2p import UdpP2P
+from p2psc.p2phandler import P2PHandler
+from appPublic.jsonConfig import getConfig
+from appPublic.app_logger import create_logger
+
+class Client(UdpP2P):
+	def on_handshaked(self):
+		self.debug('on_handshake() called')
+		self.send(b'this is a test text')
+		self.info('this is a test text --- send to server')
+
+	def on_recv(self, data, addr):
+		d = data.decode('utf-8')
+		self.info('data receive=%s', d)
+		self.stop()
+		loop = asyncio.get_event_loop()
+		loop.stop()
+		self.debug('loop=%s', loop)
+
+if __name__ == '__main__':
+	pwd = os.getcwd()
+	config = getConfig(pwd)
+	if len(sys.argv) < 2:
+		print('Usage:\n%s peerid', sys.argv[1])
+		sys.exit(1)
+
+	logger = create_logger('uclient', levelname='debug')
+	loop = asyncio.get_event_loop()
+	p2p = P2PHandler(loop=loop)
+	c = loop.run_until_complete( p2p.connect_udp_peer(sys.argv[1], ProtocolClass=Client))
+	logger.debug('loop=%s', loop)
+	loop.run_forever()
+```
+
 ## Peer's configure file
 P2psc need a conf/config.json file in somewhere to stores the p2p configure information.
 it contains:
@@ -138,8 +201,9 @@ The folder stores peer's public key, need write privilege
 ```
 -rw-r--r--  1 ymq  staff  451 Mar 16 11:31 test2.com.pubkey.pem
 ```
-### 
-## Test
+
+## TCP Test
+
 test source code in test folder, there are client.py and server.py in test folder
 ### start server
 ```
@@ -152,5 +216,17 @@ python ../test/server.py
 cd test2
 python ../test/client.py test1.com
 ```
-the result
+## UDP Test
+
+test source code in test folder, there are uclient.py and userver.py in test folder
+### start server
+```
+cd test1
+python ../test/userver.py
+```
+
+### start client
+```
+cd test2
+python ../test/uclient.py test1.com
 ```
