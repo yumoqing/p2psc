@@ -10,9 +10,7 @@ from appPublic.app_logger import AppLogger
 from appPublic.uniqueID import getID
 from appPublic.rc4 import KeyChain
 from .p2p import P2P
-
-class MissRemoteAddr(Exception):
-	pass
+from .p2pexcept import *
 
 class UP2P(P2P):
 	def __init__(self, protocol, addr):
@@ -25,8 +23,8 @@ class UP2P(P2P):
 	def transport_write(self, data, addr=None):
 		if addr is None:
 			addr = self.remote_addr
-		self.debug('send data=%s', data)
 		self.transport.sendto(data, addr)
+		self.debug('send data=%s',data)
 		
 	def on_recv(self, data):
 		self.logger.debug('on_recv(%s) called', data)
@@ -56,6 +54,8 @@ class UdpP2P(asyncio.DatagramProtocol, AppLogger):
 		self.destroy_dummy = True
 		if peer_id:
 			self.remote_addr = self.handler.get_peer_address(peer_id)
+			if not self.remote_addr:
+				raise UnknownPeerError
 		loop = asyncio.get_event_loop()
 		loop.run_in_executor(self.handler.executor, self.destroy_dummy_p2p)
 		self.debug('__init__() called')

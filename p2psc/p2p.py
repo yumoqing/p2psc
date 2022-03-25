@@ -11,24 +11,18 @@ from appPublic.uniqueID import getID
 from appPublic.rc4 import KeyChain
 from appPublic.app_logger import AppLogger
 from .crc import gen_crc, check_crc
+from .p2pexcept import *
 
 HANDSHAKE_REQ=b'\x01'
 HANDSHAKE_RESP=b'\x02'
 NORMAL_DATA=b' '
+STREAM_GONO=b'\x21'
+STREAM_END=b'\x22'
+
 BRIDGE_TO_REQ=b'\x03'
 BRIDGE_TO_RESP=b'\x04'
 BRIDGE_FOR_REQ=b'\x05'
 BRIDGE_FOR_RESP=b'\x06'
-
-class CRCError(Exception):
-	pass
-
-class ChannelNotReady(Exception):
-	pass
-class InvalidDataType(Exception):
-	pass
-class SignCheckError(Exception):
-	pass
 
 class P2P(AppLogger):
 	def __init__(self, handler, myid, peer_id=None):
@@ -152,6 +146,7 @@ class P2P(AppLogger):
 		self.transport_write(NORMAL_DATA + self.session_id + crypt)
 
 	def transport_write(self, data):
+		olen = len(data)
 		self.transport.write(data)
 		
 	def accept_normal_data(self, data):

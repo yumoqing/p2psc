@@ -12,6 +12,7 @@ import socket
 P2PSC_CENTER_PID = 'p2psc_center'
 from .p2p import TcpP2P
 from .udp_p2p import UdpP2P
+from .p2pexcept import *
 import concurrent.futures
 
 class P2PHandler(object):
@@ -23,7 +24,6 @@ class P2PHandler(object):
 		self.rsa = RSA()
 		config = getConfig()
 		self._load_my_info()
-		self._load_secret_original()
 		self.conns = {}
 		self.executor = concurrent.futures.ThreadPoolExecutor(
 			max_workers=300
@@ -47,11 +47,6 @@ class P2PHandler(object):
 		p1.data_received = data_received1
 		p2.data_received = data_received2
 
-	def _load_secret_original(self):
-		config = getConfig()
-		with open(config.secret_original_file, 'rb') as f:
-			self.secret_original = f.read()
-	
 	def new_secret_book(self):	
 		f = random.random() * 0.88
 		solen = len(self.secret_original) 
@@ -74,10 +69,15 @@ class P2PHandler(object):
 
 	def check_peer_sign(self, pid, buffer, sign):
 		pk = self.get_peer_pubkey(pid)
+		if not pk:
+			raise(UnknownPeerError)
+
 		return self.rsa.check_sign_bdata(pk, buffer, sign)
 
 	def peer_encode(self, pid, buffer):
 		pk = self.get_peer_pubkey(pid)
+		if not pk:
+			raise(UnknownPeerError)
 		return self.rsa.encode_bytes(pk, buffer)
 
 	def me_decode(self, buffer):
@@ -169,6 +169,9 @@ class P2PHandler(object):
 
 		config = getConfig()
 		peer_info_url = config.find_peer_info_url
+		if not peer_info_url:
+			return None
+
 		params = {
 			'id': pid
 		}
@@ -192,6 +195,8 @@ class P2PHandler(object):
 	async def connect_peer(self, peer_id, ProtocolClass=TcpP2P):
 		f = functools.partial(self.create_protocol, ProtocolClass, peer_id)
 		pinfo = self.get_peer_info(peer_id)
+		if not pinfo:
+			raise(UnknownPeerError)
 		h = socket.gethostbyname(pinfo['host'])
 		p = pinfo['port']
 		client = await self.loop.create_connection(f, h, p)
@@ -200,6 +205,8 @@ class P2PHandler(object):
 	async def connect_udp_peer(self, peer_id, ProtocolClass=UdpP2P):
 		f = functools.partial(self.create_protocol, ProtocolClass, peer_id)
 		pinfo = self.get_peer_info(peer_id)
+		if not pinfo:
+			raise(UnknownPeerError)
 		h = socket.gethostbyname(pinfo['host'])
 		p = pinfo['port']
 		client = await self.loop.create_datagram_endpoint(f, 
