@@ -57,7 +57,9 @@ class UdpP2P(asyncio.DatagramProtocol, AppLogger):
 			if not self.remote_addr:
 				raise UnknownPeerError
 		loop = asyncio.get_event_loop()
-		loop.run_in_executor(self.handler.executor, self.destroy_dummy_p2p)
+		if not peer_id:
+			loop.run_in_executor(self.handler.executor, 
+							self.destroy_dummy_p2p)
 		self.debug('__init__() called')
 
 	def create_p2p(self, addr):
