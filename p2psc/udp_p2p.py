@@ -27,7 +27,7 @@ class UP2P(P2P):
 		self.debug('send data=%s',data)
 		
 	def on_recv(self, data):
-		self.logger.debug('on_recv(%s) called', data)
+		# self.logger.debug('on_recv(%s) called', data)
 		self.protocol.on_recv(data, self.remote_addr)
 
 	def timestamp_last(self):
@@ -37,6 +37,14 @@ class UP2P(P2P):
 		"""
 		"""
 		self.protocol.on_handshaked()
+
+	def data_handler(self, data, addr):
+		try:
+			return super.().data_handler(data)
+		except Exception as e:
+			print_exc()
+			self.error('data_handler error(%s)', e)
+
 		
 class UdpP2P(asyncio.DatagramProtocol, AppLogger):
 	"""
