@@ -154,7 +154,7 @@ class P2P(AppLogger):
 		self.transport.write(data)
 		
 	def accept_normal_data(self, data):
-		if self.status != 'normal'
+		if self.status != 'normal':
 			return self.transport_write(self.reshake_package())
 
 		bdata = self.keychain.decode_bytes(data)

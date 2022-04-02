@@ -38,14 +38,6 @@ class UP2P(P2P):
 		"""
 		self.protocol.on_handshaked()
 
-	def data_handler(self, data, addr):
-		try:
-			return super.().data_handler(data)
-		except Exception as e:
-			print_exc()
-			self.error('data_handler error(%s)', e)
-
-		
 class UdpP2P(asyncio.DatagramProtocol, AppLogger):
 	"""
 	use myid + peer_id to identify a seesion
