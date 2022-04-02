@@ -15,7 +15,11 @@ from .p2pexcept import *
 
 HANDSHAKE_REQ=b'\x01'
 HANDSHAKE_RESP=b'\x02'
+RESHAKE_NEED=b'\x03'
+ERROR_DATA=b'\x04'
 NORMAL_DATA=b' '
+NORMAL_REQ=b'\x30'
+NORMAL_RESP=b'\x31'
 STREAM_GONO=b'\x21'
 STREAM_END=b'\x22'
 
@@ -150,15 +154,29 @@ class P2P(AppLogger):
 		self.transport.write(data)
 		
 	def accept_normal_data(self, data):
+		if self.status != 'normal'
+			return self.transport_write(self.reshake_package())
+
 		bdata = self.keychain.decode_bytes(data)
 		crc = bdata[:1]
 		_bdata = bdata[1:]
 		if check_crc(_bdata, crc):
 			return self.on_recv(_bdata)
 		else:
+			self.transport.write(self.error_package())
 			raise CRCError
 
+	def reshake_package(self):
+		return RESHAKE_NEED
+
+	def error_package(self):
+		return ERROR_DATA
+		
 	def data_handler(self, data):
+		if data[0:1] == RESHAKE_NEED:
+			self.status = 'init'
+			self.hand_shake()
+			return
 		if data[0:1] == HANDSHAKE_REQ:
 			if not self.is_server:
 				print('not in server side, ignore it')
