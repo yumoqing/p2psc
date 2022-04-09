@@ -24,7 +24,6 @@ class UP2P(P2P):
 		if addr is None:
 			addr = self.remote_addr
 		self.transport.sendto(data, addr)
-		self.debug('send data=%s',data)
 		
 	def on_recv(self, data):
 		# self.logger.debug('on_recv(%s) called', data)
