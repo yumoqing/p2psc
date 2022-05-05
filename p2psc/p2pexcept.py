@@ -17,3 +17,5 @@ class InvalidDataType(Exception):
 class SignCheckError(Exception):
 	pass
 
+class StatusError(Exception):
+	pass
