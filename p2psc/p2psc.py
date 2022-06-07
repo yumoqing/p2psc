@@ -36,22 +36,20 @@ class P2psc(AppLogger):
 		self.status = 'init'
 		self.myid = myid
 		self.peer_id = peer_id
+		self.timestamp = time.time()
 		if peer_id:
 			self.handler.set_peer_conn(peer_id, self)
 		self.myid_b = myid.encode('utf-8')
-		self.send_buffer = ''
-		if not self.is_server:
-			self.secret_book = self.handler.create_secret_book()
-			self.keychain = KeyChain(self.secret_book)
-			self.session_id = None
-		else:
-			self.secret_book = None
-			self.session_id = getID().encode('utf-8')
 
-	def build_hand_shake_package(self, peer_id):
+	def build_hand_shake_package(self):
 		if self.status not in ['init', 'status_mismatch']:
 			self.debug('status mismatch, can not hand shake')
+			self.status = 'status_mismatch'
 			raise StatusError
+		self.secret_book = self.handler.create_secret_book()
+		self.keychain = KeyChain(self.secret_book)
+		self.session_id = None
+		peer_id = self.peer_id
 		self.status = 'handshaking'
 		timestamp = int(time.time())
 		fmt = '!l%ds%ds' % (len(self.myid_b), len(self.secret_book))
@@ -65,9 +63,8 @@ class P2psc(AppLogger):
 		return send_buffer
 
 	def unpack_hand_shake_data(self, data):
-		if self.status not in ['init', 'status_mismatch']:
-			self.debug('status mismatch, can not hand shake')
-			raise StatusError
+		self.secret_book = None
+		self.session_id = getID().encode('utf-8')
 		self.status = 'handshaking'
 		fmt, d = data.split(b'||', 1)
 		fmt = fmt.decode('utf-8')
@@ -87,7 +84,7 @@ class P2psc(AppLogger):
 									time_delta=self.time_delta)
 
 	def build_hand_shake_response_package(self):
-		if status != 'handshaking':
+		if self.status != 'handshaking':
 			raise StatusError
 		crypt = self.handler.peer_encode(self.peer_id, self.session_id)
 		sign = self.handler.sign(crypt)
@@ -95,9 +92,14 @@ class P2psc(AppLogger):
 		stru = struct.pack(fmt, crypt, sign)
 		send_buffer = HANDSHAKE_RESP + fmt.encode('utf-8') + b'||' + stru
 		self.status = 'normal'
+		return send_buffer
+
+	def set_timestamp(self):
+		self.timestamp = time.time()
 
 	def unpack_hand_shake_response_package(self, data):
-		if status != 'handshaking':
+		if self.status != 'handshaking':
+			self.status = 'status_mismatch'
 			raise StatusError
 		fmt, d = data.split(b'||', 1)
 		fmt = fmt.decode('utf-8')
@@ -112,15 +114,17 @@ class P2psc(AppLogger):
 	def build_normal_package(self, data):
 		if self.status != 'normal':
 			self.debug('self.status=%s', self.status)
+			self.status = 'status_mismatch'
 			raise ChannelNotReady()
 		crc = gen_crc(data)
 		bdata = crc+data
-		crypt = self.keychain.encode_bytes(bdata)
+		crypt = NORMAL_DATA + self.keychain.encode_bytes(bdata)
 		return crypt
 
 	def unpack_normal_package(self, data):
 		if self.status != 'normal':
 			self.debug('self.status=%s', self.status)
+			self.status = 'status_mismatch'
 			raise ChannelNotReady()
 
 		bdata = self.keychain.decode_bytes(data)

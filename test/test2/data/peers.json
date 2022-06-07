@@ -1,0 +1,7 @@
+{
+	"test1.com":{
+		"peer_id":"test1.com",
+		"host":"127.0.0.1",
+		"port":10098
+	}
+}

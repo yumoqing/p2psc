@@ -139,7 +139,7 @@ class P2P(AppLogger):
 	def symmetric_encrypt_data(self, data):
 		if self.status != 'normal':
 			print('self.status=', self.status)
-			raise ChannelNotReady()
+			return None
 		crypt = self.keychain.encode_bytes(data)
 		return crypt
 
@@ -147,6 +147,8 @@ class P2P(AppLogger):
 		crc = gen_crc(data)
 		bdata = crc+data
 		crypt = self.symmetric_encrypt_data(bdata)
+		if crypt is None:
+			return
 		self.transport_write(NORMAL_DATA + self.session_id + crypt)
 
 	def transport_write(self, data):

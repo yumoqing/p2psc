@@ -1,5 +1,6 @@
 
 import os
+import asyncio
 import time
 import codecs
 import functools
@@ -9,20 +10,26 @@ from appPublic.rsa import RSA
 import json
 import random
 import socket
+import concurrent.futures
 P2PSC_CENTER_PID = 'p2psc_center'
-from .p2p import TcpP2P
-from .udp_p2p import UdpP2P
+# from .tcp_p2psc import SecTcp
+from .udp_p2psc import SecUdp
 from .p2pexcept import *
 
 class PubkeyHandler(object):
 	def __init__(self):
 		self.peers = {}
 		self.rsa = RSA()
-		config = getConfig()
-		self._load_my_info()
+		self._config = getConfig().p2psc
 		self.conns = {}
-		if config.known_peers_file:
-			self._load_peers_info_from_file(config.known_peers_file)
+		self.config = {}
+		self._load_my_info()
+		self.loop = asyncio.get_event_loop()
+		self.executor = concurrent.futures.ThreadPoolExecutor(
+			max_workers=300
+		)
+		if self._config.known_peers_file:
+			self._load_peers_info_from_file(self._config.known_peers_file)
 
 	def set_peer_conn(self, peer_id, p2p):
 		t = int(time.time())
@@ -75,7 +82,7 @@ class PubkeyHandler(object):
 		return self.rsa.publickeyText(self.config['pubkey']).encode('utf-8')
 
 	def _load_my_info(self):
-		config = getConfig()
+		config = self._config
 		with codecs.open(config.xconfig, 'r', 'utf-8') as f:
 			self.config = json.loads(f.read())
 
@@ -113,14 +120,22 @@ class PubkeyHandler(object):
 				return info
 		return self.find_peer_info(pid)
 
+	def get_peer_address(self, pid):
+		p = self.get_peer_info(pid)
+		if p is None:
+			return None, None
+		h = socket.gethostbyname(p['host'])
+		p = p['port']
+		return h, p
+
 	def _load_peer_pubkey(self, pid):
-		config = getConfig()
+		config = self._config
 		fn = os.path.join(config.peer_pubkey_path, f'{pid}.pubkey.pem')
 		with codecs.open(fn, 'r', 'utf-8') as f:
 			return f.read()
 		
 	def _save_peer_pubkey(self, pid, pubkey):
-		config = getConfig()
+		config = self._config
 		fn = os.path.join(config.pubkey_path, f'{pid}.pubkey.pem' )
 		with codecs.open(fn, 'w', 'utf-8') as f:
 			f.write(pubkey)
@@ -138,7 +153,7 @@ class PubkeyHandler(object):
 		this function need to know the center's pubkey
 		"""
 
-		config = getConfig()
+		config = self._config
 		peer_info_url = config.find_peer_info_url
 		if not peer_info_url:
 			return None
@@ -167,3 +182,46 @@ class PubkeyHandler(object):
 			j = int(random.random() * la)
 			x = f'{x}{alpha[j]}'
 		return x.encode('utf-8')
+
+	def get_myaddress(self):
+		host = socket.gethostbyname(self.config['host'])
+		port = self.config['port']
+		return host, port
+
+	def create_protocol(self, ProtocolClass, peer_id=None):
+		return ProtocolClass(self, self.get_myid(), peer_id=peer_id)
+
+	"""
+	async def connect_peer(self, peer_id, ProtocolClass=SecTcp):
+		f = functools.partial(self.create_protocol, ProtocolClass, peer_id)
+		pinfo = self.get_peer_info(peer_id)
+		if not pinfo:
+			raise(UnknownPeerError)
+		h = socket.gethostbyname(pinfo['host'])
+		p = pinfo['port']
+		client = await self.loop.create_connection(f, h, p)
+		return client
+
+	async def run_as_server(self, ProtocolClass=SecTcp):
+		f = functools.partial(self.create_protocol, ProtocolClass)
+		h,p = self.get_myaddress()
+		self.server = await self.loop.create_server(f, 
+									h, p)
+	"""
+	async def connect_udp_peer(self, peer_id, ProtocolClass=SecUdp):
+		f = functools.partial(self.create_protocol, ProtocolClass, peer_id)
+		pinfo = self.get_peer_info(peer_id)
+		if not pinfo:
+			raise(UnknownPeerError)
+		h = socket.gethostbyname(pinfo['host'])
+		p = pinfo['port']
+		client = await self.loop.create_datagram_endpoint(f, 
+									remote_addr=(h, p))
+		return client
+
+	async def run_as_udp_server(self, ProtocolClass=SecUdp):
+		f = functools.partial(self.create_protocol, ProtocolClass)
+		h,p = self.get_myaddress()
+		self.server = await self.loop.create_datagram_endpoint(f, 
+							local_addr=(h,p))
+		

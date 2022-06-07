@@ -1,0 +1,11 @@
+{
+	"p2psc":{
+		"my_prikey_file":   "$[workdir]$/data/private_key.pem",
+		"xconfig":          "$[workdir]$/data/config.json",
+		"known_peers_file": "$[workdir]$/data/peers.json",
+		"peer_pubkey_path": "$[workdir]$/data/pubkeys",
+		"find_peer_info_url":"http://192.168.1.8:9999/api/get_peer_info.dspy",
+		"secret_original_file":"$[workdir]$/data/secret.txt",
+		"oops":"..."
+	}
+}
