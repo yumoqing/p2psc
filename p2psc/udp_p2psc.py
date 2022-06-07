@@ -59,7 +59,6 @@ class SecUdp(asyncio.DatagramProtocol, AppLogger):
 		k = self.p2pkey(addr)
 		p2p = self.p2ps.get(k)
 		if p2p is None:
-			self.error('p2p not found by addr(%s)', addr)
 			return None
 		p2p.set_timestamp()
 		return p2p
@@ -88,7 +87,7 @@ class SecUdp(asyncio.DatagramProtocol, AppLogger):
 		self.transport.close()
 
 	def datagram_received(self, data, addr):
-		self.logger.info('datagram_received(%s, %s) called', data, addr)
+		# self.logger.info('datagram_received(%s, %s) called', data, addr)
 		p2p = self.get_p2p(addr)
 		if p2p is None:
 			p2p = self.create_p2p(addr=addr)
@@ -147,19 +146,22 @@ class SecUdp(asyncio.DatagramProtocol, AppLogger):
 		self.blocked_data = []
 		self.on_handshaked()
 			
+	def need_reshakehand(self, addr=None):
+		if self.remote_addr:
+			self.hand_shake()
+		else:
+			p2p = self.get_p2p(addr)
+			d = p2p.reshake_package()
+			self._udp_send(d, addr)
+			return
 	def accept_normal_data(self, data, addr):
 		p2p = self.get_p2p(addr)
 		d = None
 		try:
 			d = p2p.unpack_normal_package(data)
 		except ChannelNotReady as e:
-			if self.remote_addr:
-				self.hand_shake()
-				return
-			else:
-				d = p2p.reshake_package()
-				self._udp_send(d, addr)
-				return
+			self.need_reshakehand(addr)
+			return
 		self.on_recv(d, addr)
 
 	def send(self, data, addr=None):
@@ -179,7 +181,7 @@ class SecUdp(asyncio.DatagramProtocol, AppLogger):
 			buf = p2p.build_normal_package(data)
 		except ChannelNotReady as e:
 			self.blocked_data.append(data)
-			self.hand_shake()
+			self.need_reshakehand(addr)
 			return
 		except:
 			return
