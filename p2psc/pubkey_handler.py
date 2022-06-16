@@ -196,15 +196,18 @@ class PubkeyHandler(object):
 		f = functools.partial(self.create_protocol, ProtocolClass, peer_id)
 		pinfo = self.get_peer_info(peer_id)
 		if not pinfo:
+			self.info('peer_id=%s not found in config file', peer)
 			raise(UnknownPeerError)
 		h = socket.gethostbyname(pinfo['host'])
 		p = pinfo['port']
+		self.info('connect peer %s(%s, %d)', peer_id, h, p)
 		client = await self.loop.create_connection(f, h, p)
 		return client
 
 	async def run_as_server(self, ProtocolClass=SecTcp):
 		f = functools.partial(self.create_protocol, ProtocolClass)
 		h,p = self.get_myaddress()
+		self.info('server running at(%s, %d)', h, p)
 		self.server = await self.loop.create_server(f, 
 									h, p)
 	"""
