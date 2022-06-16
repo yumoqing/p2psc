@@ -1,0 +1,7 @@
+{
+	"ddns_server":{
+		"peer_id":"ddns_server",
+		"host":"bsppo.com",
+		"port":5678
+	}
+}

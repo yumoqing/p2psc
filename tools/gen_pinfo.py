@@ -9,7 +9,7 @@ from appPublic.rsa import RSA
 from appPublic.rc4 import KeyChain
 
 def gen_keys(pid, passwd=None):
-	config = getConfig()
+	config = getConfig().p2psc
 	rsa = RSA()
 	prikey = rsa.create_privatekey()
 	fn = config.my_prikey_file
@@ -24,13 +24,13 @@ def gen_xconfig(pid, host, port):
 		"host":host,
 		"port":port
 	}
-	config = getConfig()
+	config = getConfig().p2psc
 	x = json.dumps(d, indent=4)
 	with codecs.open(config.xconfig, 'w', 'utf-8') as f:
 		f.write(x)
 
 def gen_empty_peers():
-	config = getConfig()
+	config = getConfig().p2psc
 	with codecs.open(config.known_peers_file, "w", "utf-8") as f:
 		f.write('''{
 }''')
